@@ -1,0 +1,8 @@
+# Directory containing compiled object files and executables.
+bin/
+
+# Directory containing large text files generated during processing pipeline.
+intermediate/
+
+# Input videos.
+*.avi

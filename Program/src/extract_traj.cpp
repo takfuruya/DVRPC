@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
 
 	// Initialize trajectory data structure.
 	// Max 10000 trajectories for max 30 seconds each.
-	TrajectoryListManager traj(N_POINTS_TO_SAMPLE*20, END_FRAME-START_FRAME, iFrame);
+	TrajectoryListManager traj(N_POINTS_TO_SAMPLE*12, END_FRAME-START_FRAME, iFrame);
 
 
 	// First frame.

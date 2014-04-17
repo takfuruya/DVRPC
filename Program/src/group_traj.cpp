@@ -28,6 +28,9 @@ const cv::Matx33f MAT_T_INV(
 	0.0046,		-0.0424,	3.2262,
 	0.0058,		-0.0415,	1.0000);
 
+const float POS_TOLERANCE = 26.0f;
+const float VEL_TOLERANCE = 3.6f;
+const int MIN_SIMILAR_FRAMES = 7;
 
 void rectifyPoints(vector< vector<float> >& trajsX, vector< vector<float> >& trajsY, vector<bool>& isValid, int& nValid)
 {
@@ -226,14 +229,14 @@ void computeSimilarities(const vector<int>& trajsStart, const vector< vector<flo
 			float deltaPos = deltaX * deltaX + deltaY * deltaY;
 			float deltaVel = deltaVx * deltaVx + deltaVy * deltaVy;
 			
-			if (deltaPos < 26.0*26.0 && deltaVel < 3.7*3.7)
+			if (deltaPos < POS_TOLERANCE*POS_TOLERANCE && deltaVel < VEL_TOLERANCE*VEL_TOLERANCE)
 			{
 				++ nSimilar;
 			}
 		}
 		
 
-		if (nSimilar > 3 && (float)nSimilar / (float)nOverlap > 0.9f)
+		if (nSimilar >= MIN_SIMILAR_FRAMES && (float)nSimilar / (float)nOverlap > 0.9f)
 		{
 			similarities.ref<float>(trajIdxA, trajIdxB) = 1.0f;
 		}
@@ -254,7 +257,7 @@ void groupTrajectories(const cv::SparseMat& similarities, vector<int>& groupNumb
 		groupNumbersTemp[i] = i;
 	}
 
-	// Iterate through every edges to find groups.
+	// Iterate through every edge to find groups.
 	cv::SparseMatConstIterator_<float> it = similarities.begin<float>();
 	cv::SparseMatConstIterator_<float> itEnd = similarities.end<float>();
 
@@ -325,28 +328,6 @@ void groupTrajectories(const cv::SparseMat& similarities, vector<int>& groupNumb
 }
 
 
-cv::Scalar getColor(int size, int value)
-{
-	int d = size / 3;
-	int n = value / d;
-	int k = (value % d) * 255 / d;
-
-	// value = 0 to size/3 ===== (0,0,0) to (255,0,0)
-	if (n == 0)
-	{
-		return CV_RGB(k, 0, 0);
-	}
-
-	// value = size/3 to 2*size/3 ===== (255,0,0) to (0,255,0)
-	if (n == 1)
-	{
-		return CV_RGB(255-k, k, 0);
-	}
-	
-	// value = 2*size/3 to size ===== (0,255,0) to (0,0,255)
-	return CV_RGB(0, 255-k, k);
-}
-
 void createColorMap(const vector<int>& groupNumbers, const int nGroups, vector<cv::Scalar>& colorMap)
 {
 	srand (time(NULL));
@@ -380,13 +361,13 @@ void drawGrouping(const cv::Mat& im, const vector<int>& trajsStart, const vector
 
 	for (int i = 0; i < nTrajs; ++i)
 	{
-		int trajSize = trajsX[i].size();
+		int trajDuration = trajsX[i].size();
 		int trajStart = trajsStart[i];
 		
 		if (trajStart > frameIdx ||
-			trajStart + trajSize < frameIdx) continue;
+			trajStart + trajDuration < frameIdx) continue;
 
-		int nLines = min(trajSize, frameIdx-trajStart) - 1;
+		int nLines = min(trajDuration, frameIdx-trajStart) - 1;
 
 		for (int j = 0; j < nLines; ++j)
 		{
@@ -400,6 +381,46 @@ void drawGrouping(const cv::Mat& im, const vector<int>& trajsStart, const vector
 			cv::Point end(x2, y2);
 			cv::line(imOut, start, end, colorMap[i]);
 		}
+	}
+}
+
+
+void drawConnection(const cv::Mat& im, const vector<int>& trajsStart, const vector< vector<float> >& trajsX, const vector< vector<float> >& trajsY, const cv::SparseMat& similarities, const int frameIdx, cv::Mat& imOut)
+{
+	imOut = im.clone();
+
+	// Iterate through every edge.
+	cv::SparseMatConstIterator_<float> it = similarities.begin<float>();
+	cv::SparseMatConstIterator_<float> itEnd = similarities.end<float>();
+
+	for (; it != itEnd; ++it)
+	{
+		const cv::SparseMat::Node* node = it.node();
+		int trajA = node->idx[0]; // Row.
+		int trajB = node->idx[1]; // Column.
+
+		int trajStartA = trajsStart[trajA];
+		int trajStartB = trajsStart[trajB];
+		int trajEndA = trajStartA + trajsX[trajA].size() - 1;
+		int trajEndB = trajStartB + trajsX[trajB].size() - 1;
+
+		if (frameIdx < trajStartA || trajEndA < frameIdx ||
+			frameIdx < trajStartB || trajEndB < frameIdx) continue;
+
+		int idxA = frameIdx - trajStartA;
+		int idxB = frameIdx - trajStartB;
+		
+		// Draw line.
+		float x1, y1, x2, y2;
+		x1 = trajsX[trajA][idxA];
+		y1 = trajsY[trajA][idxA];
+		x2 = trajsX[trajB][idxB];
+		y2 = trajsY[trajB][idxB];
+
+		cv::Point start(x1, y1);
+		cv::Point end(x2, y2);
+
+		cv::line(imOut, start, end, CV_RGB(255, 0, 0));
 	}
 }
 
@@ -473,7 +494,8 @@ int main(int argc, char* argv[])
 	cv::moveWindow(FRAME_0, 1000, 100);
 	cv::namedWindow(FRAME_1, cv::WINDOW_AUTOSIZE);
 	cv::moveWindow(FRAME_1, 1000, 600);
-
+	cv::namedWindow(FRAME_2, cv::WINDOW_AUTOSIZE);
+	cv::moveWindow(FRAME_2, 1400, 600);
 
 	while (videoCapture.grab() && frameIdx <= frameEnd)
 	{
@@ -488,10 +510,10 @@ int main(int argc, char* argv[])
 
 		drawGrouping(im, trajsStart, trajsX, trajsY, colorMap, frameIdx, imDrawn);
 		drawGrouping(imRect, trajsStart, trajsRectX, trajsRectY, colorMap, frameIdx, imRectDrawn);
-		//drawConnection(imRect, trajsStart, trajsRectX, trajsRectY, , frameIdx, imRectDrawn2);
+		drawConnection(imRect, trajsStart, trajsRectX, trajsRectY, similarities, frameIdx, imRectDrawn2);
 		cv::imshow(FRAME_0, imDrawn);
 		cv::imshow(FRAME_1, imRectDrawn);
-		//cv::imshow(FRAME_2, imRectDrawn2);
+		cv::imshow(FRAME_2, imRectDrawn2);
 		
 		++ frameIdx;
 		//cv::waitKey(9000);

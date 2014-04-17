@@ -14,17 +14,29 @@ EXE_FILE := $(BIN_DIR)/main.exe
 CPP_FILES := $(wildcard $(SRC_DIR)/*.cpp)
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(BIN_DIR)/%.o,$(CPP_FILES))
 
-all: $(EXE_FILE)
+#all: $(EXE_FILE)
 
-$(EXE_FILE): $(OBJ_FILES)
-	$(CC) -o $@ $^ $(CVFLAGS) -lstdc++
+#$(EXE_FILE): $(OBJ_FILES)
+#	$(CC) -o $@ $^ $(CVFLAGS) -lstdc++
 
-$(OBJ_FILES): | $(BIN_DIR)
+#$(OBJ_FILES): | $(BIN_DIR)
 
+#$(BIN_DIR)/%.o: $(SRC_DIR)/%.cpp
+#	$(CC) -o $@ $< $(CFLAGS)
+
+
+# Create "bin" directory to place .o and .exe files.
 $(BIN_DIR):
 	mkdir $(BIN_DIR)
 
-$(BIN_DIR)/%.o: $(SRC_DIR)/%.cpp
+
+# Main. Used for testing small programs temporarily.
+$(BIN_DIR)/main.exe: $(BIN_DIR)/main.o
+	$(CC) -o $@ $^ $(CVFLAGS) -lstdc++
+
+$(BIN_DIR)/main.o: | $(BIN_DIR)
+
+$(BIN_DIR)/main.o: $(SRC_DIR)/main.cpp
 	$(CC) -o $@ $< $(CFLAGS)
 
 
@@ -93,8 +105,12 @@ $(BIN_DIR)/group_traj.o: $(SRC_DIR)/group_traj.cpp $(SRC_DIR)/helper.h
 clean:
 	-rm -rf ./bin
 
-.PHONY: run
-run: $(EXE_FILE)
+#.PHONY: run
+#run: $(EXE_FILE)
+#	./$< $(AVI_FILE)
+
+.PHONY: main
+main: $(BIN_DIR)/main.exe
 	./$< $(AVI_FILE)
 
 .PHONY: extract_bg

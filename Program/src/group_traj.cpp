@@ -8,6 +8,7 @@ group_traj.cpp
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <ctime>
 #include <cmath>
 #include <algorithm>
 #include "opencv2/opencv.hpp" // 2.4.5 pkg-config --modversion opencv
@@ -64,31 +65,19 @@ void rectifyPoints(vector< vector<float> >& trajsX, vector< vector<float> >& tra
 	}
 }
 
-
-void removeInvalidPoints(const vector<bool>& isValid, const int nValid, vector<int>& trajsStart, vector< vector<float> >& trajsX, vector< vector<float> >& trajsY)
+template<typename T>
+void removeInvalidPoints(const vector<bool>& isValid, const int nValid, vector<T>& vec)
 {
-	int nTrajs = trajsX.size();
-	vector<int> trajsStartNew;
-	vector< vector<float> > trajsXNew;
-	vector< vector<float> > trajsYNew;
-	trajsStartNew.resize(nValid);
-	trajsXNew.resize(nValid);
-	trajsYNew.resize(nValid);
+	int nTrajs = isValid.size();
+	vector<T> vecNew;
+	vecNew.resize(nValid);
 
 	for (int i = 0, j = 0; i < nTrajs; ++i)
 	{
-		if (isValid[i])
-		{
-			trajsStartNew[j] = trajsStart[i];
-			trajsXNew[j] = trajsX[i];
-			trajsYNew[j] = trajsY[i];
-			++ j;
-		}
+		if (isValid[i]) vecNew[j++] = vec[i];
 	}
 
-	trajsStart = trajsStartNew;
-	trajsX = trajsXNew;
-	trajsY = trajsYNew;
+	vec = vecNew;
 }
 
 
@@ -336,7 +325,6 @@ void groupTrajectories(const cv::SparseMat& similarities, vector<int>& groupNumb
 }
 
 
-// Assumes int = 4 bytes.
 cv::Scalar getColor(int size, int value)
 {
 	int d = size / 3;
@@ -359,8 +347,33 @@ cv::Scalar getColor(int size, int value)
 	return CV_RGB(0, 255-k, k);
 }
 
+void createColorMap(const vector<int>& groupNumbers, const int nGroups, vector<cv::Scalar>& colorMap)
+{
+	srand (time(NULL));
+
+	int nTrajs = groupNumbers.size();
+	vector<cv::Scalar> colors;
+	colors.resize(nGroups);
+	colorMap.resize(nTrajs);
+
+	
+	for (int i = 0; i < nGroups; ++i)
+	{
+		int r = rand() % 256;
+		int g = rand() % 256;
+		int b = rand() % 256;
+		colors[i] = CV_RGB(r, g, b);
+	}
+
+	for (int i = 0; i < nTrajs; ++i)
+	{
+		colorMap[i] = colors[groupNumbers[i]];
+	}
+}
+
+
 // For testing.
-void displayGrouping(const cv::Mat& im, const vector<int>& trajsStart, const vector< vector<float> >& trajsX, const vector< vector<float> >& trajsY, const vector<int>& groupNumbers, const int nGroups, const int frameIdx, cv::Mat& imOut)
+void drawGrouping(const cv::Mat& im, const vector<int>& trajsStart, const vector< vector<float> >& trajsX, const vector< vector<float> >& trajsY, const vector<cv::Scalar>& colorMap, const int frameIdx, cv::Mat& imOut)
 {
 	int nTrajs = trajsStart.size();
 	imOut = im.clone();
@@ -385,7 +398,7 @@ void displayGrouping(const cv::Mat& im, const vector<int>& trajsStart, const vec
 
 			cv::Point start(x1, y1);
 			cv::Point end(x2, y2);
-			cv::line(imOut, start, end, getColor(nGroups, groupNumbers[i]));
+			cv::line(imOut, start, end, colorMap[i]);
 		}
 	}
 }
@@ -423,6 +436,7 @@ int main(int argc, char* argv[])
 	cv::SparseMat similarities;
 	vector<int> groupNumbers;	// size = # of trajectories
 	int nGroups;
+	vector<cv::Scalar> colorMap;
 
 
 	getVidDim(videoCapture, vidHeight, vidWidth, nFrames);
@@ -433,31 +447,38 @@ int main(int argc, char* argv[])
 	{
 		int nValid;
 		vector<bool> isValid;
-		rectifyPoints(trajsX, trajsY, isValid, nValid);
-		removeInvalidPoints(isValid, nValid, trajsStart, trajsX, trajsY);
-		computeVelocities(trajsX, trajsY, trajsVx, trajsVy);
+		trajsRectX = trajsX;
+		trajsRectY = trajsY;
+		rectifyPoints(trajsRectX, trajsRectY, isValid, nValid);
+		removeInvalidPoints(isValid, nValid, trajsStart);
+		removeInvalidPoints(isValid, nValid, trajsX);
+		removeInvalidPoints(isValid, nValid, trajsY);
+		removeInvalidPoints(isValid, nValid, trajsRectX);
+		removeInvalidPoints(isValid, nValid, trajsRectY);
+		computeVelocities(trajsRectX, trajsRectY, trajsVx, trajsVy);
 	}
 
 	// Compute trajectory similarities.
-	computeSimilarities(trajsStart, trajsX, trajsY, trajsVx, trajsVy, similarities);
+	computeSimilarities(trajsStart, trajsRectX, trajsRectY, trajsVx, trajsVy, similarities);
 
 	// Grouping.
 	groupTrajectories(similarities, groupNumbers, nGroups);
+	createColorMap(groupNumbers, nGroups, colorMap);
 
 
 	const string FRAME_0 = "FRAME_0";
 	const string FRAME_1 = "FRAME_1";
 	const string FRAME_2 = "FRAME_2";
 	cv::namedWindow(FRAME_0, cv::WINDOW_AUTOSIZE);
-	cv::moveWindow(FRAME_0, 1100, 100);
+	cv::moveWindow(FRAME_0, 1000, 100);
 	cv::namedWindow(FRAME_1, cv::WINDOW_AUTOSIZE);
-	cv::moveWindow(FRAME_1, 1100, 600);
+	cv::moveWindow(FRAME_1, 1000, 600);
 
 
 	while (videoCapture.grab() && frameIdx <= frameEnd)
 	{
 		cout << frameIdx << " (" << 100 * (frameIdx - frameStart) / (frameEnd - frameStart) << "%)" << endl;
-		cv::Mat im, imRect, imDrawn, imRectDrawn;
+		cv::Mat im, imRect, imDrawn, imRectDrawn, imRectDrawn2;
 
 		videoCapture.retrieve(im);
 		rectifyImage(im, imRect);
@@ -465,9 +486,12 @@ int main(int argc, char* argv[])
 		//drawAllTrajs(trajsX, trajsY, imRect);
 		//imshow("Frame1", imRect);
 
-		displayGrouping(imRect, trajsStart, trajsX, trajsY, groupNumbers, nGroups, frameIdx, imRectDrawn);
-		cv::imshow(FRAME_0, imRectDrawn);
-		cv::imshow(FRAME_1, im);
+		drawGrouping(im, trajsStart, trajsX, trajsY, colorMap, frameIdx, imDrawn);
+		drawGrouping(imRect, trajsStart, trajsRectX, trajsRectY, colorMap, frameIdx, imRectDrawn);
+		//drawConnection(imRect, trajsStart, trajsRectX, trajsRectY, , frameIdx, imRectDrawn2);
+		cv::imshow(FRAME_0, imDrawn);
+		cv::imshow(FRAME_1, imRectDrawn);
+		//cv::imshow(FRAME_2, imRectDrawn2);
 		
 		++ frameIdx;
 		//cv::waitKey(9000);

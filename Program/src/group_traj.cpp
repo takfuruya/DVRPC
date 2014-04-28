@@ -13,6 +13,7 @@ group_traj.cpp
 #include <algorithm>
 #include "opencv2/opencv.hpp" // 2.4.5 pkg-config --modversion opencv
 #include "helper.h"
+#include "BronKerbosch.h"
 
 
 using namespace std;
@@ -31,6 +32,7 @@ const cv::Matx33f MAT_T_INV(
 const float POS_TOLERANCE = 26.0f;
 const float VEL_TOLERANCE = 3.6f;
 const int MIN_SIMILAR_FRAMES = 7;
+
 
 void rectifyPoints(vector< vector<float> >& trajsX, vector< vector<float> >& trajsY, vector<bool>& isValid, int& nValid)
 {
@@ -67,6 +69,7 @@ void rectifyPoints(vector< vector<float> >& trajsX, vector< vector<float> >& tra
 		if (isAllPointsValid) ++ nValid;
 	}
 }
+
 
 template<typename T>
 void removeInvalidPoints(const vector<bool>& isValid, const int nValid, vector<T>& vec)
@@ -243,6 +246,8 @@ void computeSimilarities(const vector<int>& trajsStart, const vector< vector<flo
 	}
 }
 
+
+// Dulmage-Mendelsohn decomposition.
 void groupTrajectories(const cv::SparseMat& similarities, vector<int>& groupNumbers, int& nGroups)
 {
 	int nTrajs = similarities.size()[0];
@@ -324,6 +329,52 @@ void groupTrajectories(const cv::SparseMat& similarities, vector<int>& groupNumb
 			}
 		}
 		++ j;
+	}
+}
+
+
+// Bron-Kerbosch.
+void groupTrajectories2(const cv::SparseMat& similarities, vector<int>& groupNumbers, int& nGroups)
+{
+	int nTrajs = similarities.size()[0];
+	vector< vector<int> > groups;
+	cv::SparseMat similarities2;
+
+	// Convert float to uchar
+	{
+		const int dim = 2;
+		int size[] = {nTrajs, nTrajs};
+		similarities2 = cv::SparseMat(dim, size, CV_8U);
+
+		cv::SparseMatConstIterator_<float> it = similarities.begin<float>();
+		cv::SparseMatConstIterator_<float> itEnd = similarities.end<float>();
+
+		for (; it != itEnd; ++it)
+		{
+			const cv::SparseMat::Node* node = it.node();
+			int i = node->idx[0]; // Row.
+			int j = node->idx[1]; // Column.
+
+			if (it.value<float>() > 0.5f)
+			{
+				similarities2.ref<uchar>(i, j) = 1;
+			}
+		}
+	}
+
+	findMaximalCliques(similarities2, groups);
+
+	nGroups = groups.size();
+	groupNumbers.resize(nTrajs);
+
+	for (int i = 0; i < nGroups; ++i)
+	{
+		int nVertices = groups[i].size();
+
+		for (int j = 0; j < nVertices; ++j)
+		{
+			groupNumbers[groups[i][j]] = i;
+		}
 	}
 }
 

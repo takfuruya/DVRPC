@@ -91,12 +91,27 @@ $(BIN_DIR)/test_traj_extraction.o: $(SRC_DIR)/test_traj_extraction.cpp $(SRC_DIR
 
 
 # Program to group trajectories.
-$(BIN_DIR)/group_traj.exe: $(BIN_DIR)/group_traj.o $(BIN_DIR)/helper.o
+$(BIN_DIR)/group_traj.exe: $(BIN_DIR)/group_traj.o $(BIN_DIR)/helper.o $(BIN_DIR)/BronKerbosch.o
 	$(CC) -o $@ $^ $(CVFLAGS) -lstdc++ -lm
 
 $(BIN_DIR)/group_traj.o: | $(BIN_DIR)
 
 $(BIN_DIR)/group_traj.o: $(SRC_DIR)/group_traj.cpp $(SRC_DIR)/helper.h
+	$(CC) -o $@ $< $(CFLAGS)
+
+
+# Program to test Bron-Kerbosch.
+$(BIN_DIR)/test_maximal_clique.exe: $(BIN_DIR)/test_maximal_clique.o $(BIN_DIR)/BronKerbosch.o
+	$(CC) -o $@ $^ $(CVFLAGS) -lstdc++
+
+$(BIN_DIR)/test_maximal_clique.o: | $(BIN_DIR)
+
+$(BIN_DIR)/BronKerbosch.o: | $(BIN_DIR)
+
+$(BIN_DIR)/test_maximal_clique.o: $(SRC_DIR)/test_maximal_clique.cpp
+	$(CC) -o $@ $< $(CFLAGS)
+
+$(BIN_DIR)/BronKerbosch.o: $(SRC_DIR)/BronKerbosch.cpp $(SRC_DIR)/BronKerbosch.h
 	$(CC) -o $@ $< $(CFLAGS)
 
 
@@ -132,3 +147,7 @@ test_traj_extraction: $(BIN_DIR)/test_traj_extraction.exe
 .PHONY: group_traj
 group_traj: $(BIN_DIR)/group_traj.exe
 	./$< $(AVI_FILE) $(INT_DIR)/traj.txt
+
+.PHONY: test_maximal_clique
+test_maximal_clique: $(BIN_DIR)/test_maximal_clique.exe
+	./$<

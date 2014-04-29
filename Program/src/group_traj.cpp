@@ -576,7 +576,10 @@ int main(int argc, char* argv[])
 
 	while (videoCapture.grab() && frameIdx <= frameEnd)
 	{
-		cout << frameIdx << " (" << 100 * (frameIdx - frameStart) / (frameEnd - frameStart) << "%)" << endl;
+		cout << "\r";
+		cout << frameIdx << " (" << 100 * (frameIdx - frameStart) / (frameEnd - frameStart) << "%)";
+		cout << "     " << flush;
+		
 		cv::Mat im, imRect, imDrawn, imRectDrawn, imRectDrawn2;
 
 		videoCapture.retrieve(im);

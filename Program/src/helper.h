@@ -5,8 +5,16 @@
 #include <vector>
 #include "opencv2/opencv.hpp" // OpenCV 2.4.5
 
+// Exits if input is invalid.
+void checkInputs(cv::VideoCapture& v);
+void checkInputs(cv::VideoCapture& v, int startTime, int duration);
+
 // Get width, height, and number of frames.
-void getVidDim(cv::VideoCapture& v, int& height, int& width, int& nFrames);
+void getVidInfo(cv::VideoCapture& v, int& height, int& width, int& nFrames);
+void getVidInfo(cv::VideoCapture& v, int& height, int& width, int& nFrames, int& fps);
+
+// Skip to frame f.
+void skipFrames(cv::VideoCapture& v, int f);
 
 // bgMean, bgCov must be empty.
 void loadBackground(const std::string& fileName, std::vector<cv::Mat>& bgMean, std::vector<cv::Mat>& bgCov);

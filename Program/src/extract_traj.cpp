@@ -49,7 +49,7 @@ void displayTracking(const cv::Mat& im, const cv::Mat& bw, const cv::Mat& isVali
 
 int main(int argc, char* argv[])
 {
-	if (argc != 4)
+	if (argc != 6)
 	{
 		cerr << "Incorrect number of arguments." << endl;
 		return -1;
@@ -58,13 +58,44 @@ int main(int argc, char* argv[])
 	string videoFileName = argv[1];
 	string bgFileName = argv[2];
 	string trajFileName = argv[3];
+	int startTime = atoi(argv[4]);
+	int duration = atoi(argv[5]);
 
 	cv::VideoCapture videoCapture(videoFileName);
-	if (!videoCapture.isOpened())
-	{
-		cerr << "Video failed to open." << endl;
-		return -1;
-	}
+	checkInputs(videoCapture, startTime, duration);
+
+
+	// -----------------------------------------
+	// Initialization.
+	// -----------------------------------------
+
+
+	int nFrames, vidWidth, vidHeight, fps;
+	int frameStart, frameEnd, frameIdx;
+	vector<cv::Mat> bgMean, bgInvCov;
+	cv::Mat im, imPrev, bw, isFG, isValid, isWithinBox;
+	cv::Mat points, pointsPrev, pointsNew, kltStatus;
+	double t0, t1; // For measuring execution speed.
+	const int N_POINTS_TO_SAMPLE = 400;
+	
+
+
+	// Load bg and inverse covariance.
+	// bgMean		(H*W) 1 x 3 (64F)
+	// bgInvCov		(H*W) 3 x 3 (64F)
+	getVidInfo(videoCapture, vidHeight, vidWidth, nFrames, fps);
+	loadBackground(bgFileName, bgMean, bgInvCov);
+
+
+	// Specify frame range.
+	frameStart = fps * startTime;
+	frameEnd = frameStart + fps * duration; // 30 seconds max, 20fps.
+	frameIdx = frameStart;
+
+
+	// Initialize trajectory data structure.
+	// Max 10000 trajectories for max 30 seconds each.
+	TrajectoryListManager traj(N_POINTS_TO_SAMPLE*12, frameEnd-frameStart, frameIdx);
 
 
 	// -----------------------------------------
@@ -72,27 +103,8 @@ int main(int argc, char* argv[])
 	// -----------------------------------------
 
 
-	int nFrames, vidWidth, vidHeight;
-	vector<cv::Mat> bgMean, bgInvCov;
-	cv::Mat im, imPrev, bw, isFG, isValid, isWithinBox;
-	cv::Mat points, pointsPrev, pointsNew, kltStatus;
-	const int N_POINTS_TO_SAMPLE = 400;
-	const int START_FRAME = 0;
-	const int END_FRAME = 20*30;	// 30 seconds, 20fps.
-	int iFrame = START_FRAME;
-	double t0, t1;
-
-
-	// Load bg and inverse covariance.
-	// bgMean		(H*W) 1 x 3 (64F)
-	// bgInvCov		(H*W) 3 x 3 (64F)
-	getVidDim(videoCapture, vidHeight, vidWidth, nFrames);
-	loadBackground(bgFileName, bgMean, bgInvCov);
-
-
-	// Initialize trajectory data structure.
-	// Max 10000 trajectories for max 30 seconds each.
-	TrajectoryListManager traj(N_POINTS_TO_SAMPLE*12, END_FRAME-START_FRAME, iFrame);
+	// Skip to first frame of interest.
+	skipFrames(videoCapture, frameStart);
 
 
 	// First frame.
@@ -110,7 +122,7 @@ int main(int argc, char* argv[])
 	getImageValuesAt(points, bw, isFG, isWithinBox);
 	isValid = isValid & isWithinBox;
 	traj.add(points, isFG, isValid);
-	++ iFrame;
+	++ frameIdx;
 
 
 	//cv::namedWindow("WinA", cv::WINDOW_AUTOSIZE);
@@ -119,9 +131,9 @@ int main(int argc, char* argv[])
 	//cv::moveWindow("WinB", 1000, 80+vidHeight);
 
 	t0 = (double) cv::getTickCount();
-	while (videoCapture.grab() && iFrame <= END_FRAME)
+	while (videoCapture.grab() && frameIdx <= frameEnd)
 	{
-		cout << iFrame << " (" << 100 * (iFrame - START_FRAME) / (END_FRAME-START_FRAME) << "%): ";
+		cout << frameIdx << " (" << 100 * (frameIdx - frameStart) / (frameEnd-frameStart) << "%): ";
 		cout << traj.nUsed << "/" << traj.nTraj << " (" << 100 * traj.nUsed / traj.nTraj << "%)" << endl;
 
 		// Exchange prev/current images.
@@ -137,7 +149,7 @@ int main(int argc, char* argv[])
 		isValid = isValid & kltStatus;
 
 		
-		if (iFrame % 15 == 0)
+		if (frameIdx % 15 == 0)
 		{
 			getPoints(im, N_POINTS_TO_SAMPLE, pointsNew);
 			traj.modify(pointsNew, points, isValid);
@@ -151,12 +163,12 @@ int main(int argc, char* argv[])
 		
 		//displayTracking(im, bw, isValid, traj);
 		//if (cv::waitKey(9000) >= 0) continue;
-		++ iFrame;
+		++ frameIdx;
 	}
 	t1 = (double) cv::getTickCount();
 
 
-	cout << END_FRAME-START_FRAME << " frames took ";
+	cout << frameEnd-frameStart << " frames took ";
 	cout << (t1 - t0) / cv::getTickFrequency() << "sec" << endl;
 
 

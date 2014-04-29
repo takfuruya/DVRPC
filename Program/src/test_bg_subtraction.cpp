@@ -27,11 +27,7 @@ int main(int argc, char* argv[])
 	string bgFileName = argv[2];
 
 	cv::VideoCapture videoCapture(videoFileName);
-	if (!videoCapture.isOpened())
-	{
-		cerr << "Video failed to open." << endl;
-		return -1;
-	}
+	checkInputs(videoCapture);
 
 
 	// -----------------------------------------
@@ -46,7 +42,7 @@ int main(int argc, char* argv[])
 	// Load bg and inverse covariance.
 	// bgMean		(H*W) 1 x 3 (64F)
 	// bgInvCov		(H*W) 3 x 3 (64F)
-	getVidDim(videoCapture, vidHeight, vidWidth, nFrames);
+	getVidInfo(videoCapture, vidHeight, vidWidth, nFrames);
 	cout << "Loading background." << endl;
 	loadBackground(bgFileName, bgMean, bgInvCov);
 	nPixels = bgMean.size();

@@ -175,11 +175,7 @@ int main(int argc, char* argv[])
 	string bgFileName = argv[2];
 
 	cv::VideoCapture videoCapture(videoFileName);
-	if (!videoCapture.isOpened())
-	{
-		cerr << "Video failed to open." << endl;
-		return -1;
-	}
+	checkInputs(videoCapture);
 
 
 	// -----------------------------------------
@@ -198,7 +194,7 @@ int main(int argc, char* argv[])
 	// bgMean		(H*W) 1 x 3 (64F)
 	// bgCov		(H*W) 3 x 3 (64F)
 	// randomFrames	(H*W) N x 3 (8U)
-	getVidDim(videoCapture, vidHeight, vidWidth, nFrames);
+	getVidInfo(videoCapture, vidHeight, vidWidth, nFrames);
 	nPixels = vidHeight * vidWidth;
 	bgMean.reserve(nPixels);
 	bgCov.reserve(nPixels);

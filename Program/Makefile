@@ -10,9 +10,13 @@ BIN_DIR = bin
 SRC_DIR = src
 INT_DIR = intermediate
 AVI_FILE = ../Videos/1.avi
-EXE_FILE := $(BIN_DIR)/main.exe
-CPP_FILES := $(wildcard $(SRC_DIR)/*.cpp)
-OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(BIN_DIR)/%.o,$(CPP_FILES))
+#EXE_FILE := $(BIN_DIR)/main.exe
+#CPP_FILES := $(wildcard $(SRC_DIR)/*.cpp)
+#OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(BIN_DIR)/%.o,$(CPP_FILES))
+
+# Video Time Range
+START_TIME = 15
+DURATION = 10
 
 #all: $(EXE_FILE)
 
@@ -28,6 +32,10 @@ OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(BIN_DIR)/%.o,$(CPP_FILES))
 # Create "bin" directory to place .o and .exe files.
 $(BIN_DIR):
 	mkdir $(BIN_DIR)
+
+# Create "intermediate" directory to place files created/used between programs.
+$(INT_DIR):
+	mkdir $(INT_DIR)
 
 
 # Main. Used for testing small programs temporarily.
@@ -139,6 +147,7 @@ main: $(BIN_DIR)/main.exe
 	./$< $(AVI_FILE)
 
 .PHONY: extract_bg
+extract_bg: | $(INT_DIR)
 extract_bg: $(BIN_DIR)/extract_bg.exe
 	./$< $(AVI_FILE) $(INT_DIR)/bg.txt
 
@@ -148,15 +157,15 @@ test_bg_subtraction: $(BIN_DIR)/test_bg_subtraction.exe
 
 .PHONY: extract_traj
 extract_traj: $(BIN_DIR)/extract_traj.exe
-	./$< $(AVI_FILE) $(INT_DIR)/bg.txt $(INT_DIR)/traj.txt
+	./$< $(AVI_FILE) $(INT_DIR)/bg.txt $(INT_DIR)/traj_$(START_TIME)_$(DURATION).txt $(START_TIME) $(DURATION)
 
 .PHONY: test_traj_extraction
 test_traj_extraction: $(BIN_DIR)/test_traj_extraction.exe
-	./$< $(AVI_FILE) $(INT_DIR)/traj.txt
+	./$< $(AVI_FILE) $(INT_DIR)/traj_$(START_TIME)_$(DURATION).txt
 
 .PHONY: group_traj
 group_traj: $(BIN_DIR)/group_traj.exe
-	./$< $(AVI_FILE) $(INT_DIR)/traj.txt
+	./$< $(AVI_FILE) $(INT_DIR)/traj_$(START_TIME)_$(DURATION).txt
 
 .PHONY: test_maximal_clique
 test_maximal_clique: $(BIN_DIR)/test_maximal_clique.exe
@@ -164,4 +173,4 @@ test_maximal_clique: $(BIN_DIR)/test_maximal_clique.exe
 
 .PHONY: play_video
 play_video: $(BIN_DIR)/play_video.exe
-	./$< $(AVI_FILE) 1033 30
+	./$< $(AVI_FILE) $(START_TIME) $(DURATION)

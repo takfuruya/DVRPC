@@ -61,11 +61,7 @@ int main(int argc, char* argv[])
 	string trajFileName = argv[2];
 
 	cv::VideoCapture videoCapture(videoFileName);
-	if (!videoCapture.isOpened())
-	{
-		cerr << "Video failed to open." << endl;
-		return -1;
-	}
+	checkInputs(videoCapture);
 
 
 	// -----------------------------------------
@@ -79,12 +75,14 @@ int main(int argc, char* argv[])
 	int frameStart, frameEnd, frameIdx;
 
 
-	getVidDim(videoCapture, vidHeight, vidWidth, nFrames);
+	getVidInfo(videoCapture, vidHeight, vidWidth, nFrames);
 	loadTrajectories(trajFileName, trajsX, trajsY, trajsStart, frameStart, frameEnd);
 	frameIdx = frameStart;
 
 	cv::namedWindow("Frame", cv::WINDOW_AUTOSIZE);
 	
+	skipFrames(videoCapture, frameStart);
+
 	while (videoCapture.grab() && frameIdx <= frameEnd)
 	{
 		cout << frameIdx << " (" << 100 * (frameIdx - frameStart) / (frameEnd - frameStart) << "%)" << endl;

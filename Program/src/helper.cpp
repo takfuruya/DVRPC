@@ -7,8 +7,41 @@
 
 using namespace std;
 
+void checkInputs(cv::VideoCapture& v)
+{
+	if (!v.isOpened())
+	{
+		cerr << "helper.cpp: Video failed to open." << endl;;
+		exit(0);
+	}
+}
 
-void getVidDim(cv::VideoCapture& v, int& h, int& w, int& f)
+void checkInputs(cv::VideoCapture& v, int startTime, int duration)
+{
+	checkInputs(v);
+
+	int nFrames, fps, startFrame, endFrame;
+	bool isWithinRange;
+	
+	nFrames = static_cast<int>(v.get(CV_CAP_PROP_FRAME_COUNT) + 0.5);
+	fps = static_cast<int>(v.get(CV_CAP_PROP_FPS) + 0.5);
+	
+	startFrame = startTime * fps;
+	endFrame = startFrame + duration * fps;
+	isWithinRange = (startFrame >= 0 &&
+					 startFrame < endFrame &&
+					 endFrame < nFrames);
+
+	// Check range.
+	if (!isWithinRange)
+	{
+		cerr << "helper.cpp: Video range is invalid." << endl;
+		exit(0);
+	}
+}
+
+
+void getVidInfo(cv::VideoCapture& v, int& h, int& w, int& f)
 {
 	double dh = v.get(CV_CAP_PROP_FRAME_HEIGHT);
 	double dw = v.get(CV_CAP_PROP_FRAME_WIDTH);
@@ -16,6 +49,24 @@ void getVidDim(cv::VideoCapture& v, int& h, int& w, int& f)
 	h = static_cast<int>(dh + 0.5);
 	w = static_cast<int>(dw + 0.5);
 	f = static_cast<int>(df + 0.5);
+}
+
+
+void getVidInfo(cv::VideoCapture& v, int& h, int& w, int& f, int& r)
+{
+	getVidInfo(v, h, w, f);
+	
+	double dr = v.get(CV_CAP_PROP_FPS);
+	r = static_cast<int>(dr + 0.5);
+}
+
+
+void skipFrames(cv::VideoCapture& v, int f)
+{
+	for (int i = 0; i < f; ++i)
+	{
+		v.grab();
+	}
 }
 
 

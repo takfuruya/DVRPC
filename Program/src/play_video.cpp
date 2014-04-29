@@ -26,11 +26,7 @@ int main(int argc, char* argv[])
 	int duration = atoi(argv[3]);	// In seconds.
 
 	cv::VideoCapture videoCapture(videoFileName);
-	if (!videoCapture.isOpened())
-	{
-		cerr << "Video failed to open." << endl;
-		return -1;
-	}
+	checkInputs(videoCapture, startTime, duration);
 
 
 	// -----------------------------------------
@@ -42,10 +38,10 @@ int main(int argc, char* argv[])
 	int frameStart, frameEnd, frameIdx; // Inclusive
 
 	
-	getVidDim(videoCapture, vidHeight, vidWidth, nFrames);
-	fps = static_cast<int>(videoCapture.get(CV_CAP_PROP_FPS) + 0.5);
+	getVidInfo(videoCapture, vidHeight, vidWidth, nFrames, fps);
 	frameStart = startTime * fps;
 	frameEnd = frameStart + duration * fps;
+	frameIdx = frameStart;
 
 
 	const string FRAME = "FRAME";
@@ -54,10 +50,7 @@ int main(int argc, char* argv[])
 
 
 	// Skip frames.
-	for (frameIdx = 0; frameIdx < frameStart; ++ frameIdx)
-	{
-		videoCapture.grab();
-	}
+	skipFrames(videoCapture, frameStart);
 
 
 	while (videoCapture.grab() && frameIdx <= frameEnd)

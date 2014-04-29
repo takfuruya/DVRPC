@@ -488,15 +488,11 @@ int main(int argc, char* argv[])
 	string trajFileName = argv[2];
 
 	cv::VideoCapture videoCapture(videoFileName);
-	if (!videoCapture.isOpened())
-	{
-		cerr << "Video failed to open." << endl;
-		return -1;
-	}
+	checkInputs(videoCapture);
 
 
 	// -----------------------------------------
-	// Begin processing video.
+	// Initialization.
 	// -----------------------------------------
 
 
@@ -511,9 +507,15 @@ int main(int argc, char* argv[])
 	vector<cv::Scalar> colorMap;
 
 
-	getVidDim(videoCapture, vidHeight, vidWidth, nFrames);
+	getVidInfo(videoCapture, vidHeight, vidWidth, nFrames);
 	loadTrajectories(trajFileName, trajsX, trajsY, trajsStart, frameStart, frameEnd);
 	frameIdx = frameStart;
+
+
+	// -----------------------------------------
+	// Begin processing trajectories.
+	// -----------------------------------------
+
 
 	// Rectify trajectories, remove invalid ones, compute velocities.
 	{
@@ -547,6 +549,10 @@ int main(int argc, char* argv[])
 	cv::moveWindow(FRAME_1, 1000, 600);
 	cv::namedWindow(FRAME_2, cv::WINDOW_AUTOSIZE);
 	cv::moveWindow(FRAME_2, 1400, 600);
+
+
+	skipFrames(videoCapture, frameStart);
+
 
 	while (videoCapture.grab() && frameIdx <= frameEnd)
 	{

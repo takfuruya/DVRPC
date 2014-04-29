@@ -115,6 +115,16 @@ $(BIN_DIR)/BronKerbosch.o: $(SRC_DIR)/BronKerbosch.cpp $(SRC_DIR)/BronKerbosch.h
 	$(CC) -o $@ $< $(CFLAGS)
 
 
+# Play video.
+$(BIN_DIR)/play_video.exe: $(BIN_DIR)/play_video.o $(BIN_DIR)/helper.o
+	$(CC) -o $@ $^ $(CVFLAGS) -lstdc++
+
+$(BIN_DIR)/play_video.o: | $(BIN_DIR)
+
+$(BIN_DIR)/play_video.o: $(SRC_DIR)/play_video.cpp $(SRC_DIR)/helper.h
+	$(CC) -o $@ $< $(CFLAGS)
+
+
 # Useful Commands
 .PHONY: clean
 clean:
@@ -151,3 +161,7 @@ group_traj: $(BIN_DIR)/group_traj.exe
 .PHONY: test_maximal_clique
 test_maximal_clique: $(BIN_DIR)/test_maximal_clique.exe
 	./$<
+
+.PHONY: play_video
+play_video: $(BIN_DIR)/play_video.exe
+	./$< $(AVI_FILE) 1033 30

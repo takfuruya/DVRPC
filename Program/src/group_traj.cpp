@@ -505,6 +505,7 @@ int main(int argc, char* argv[])
 	vector<int> groupNumbers;	// size = # of trajectories
 	int nGroups;
 	vector<cv::Scalar> colorMap;
+	double t0, t1, t2, t3, t4; // For measuring execution speed.
 
 
 	getVidInfo(videoCapture, vidHeight, vidWidth, nFrames);
@@ -517,7 +518,8 @@ int main(int argc, char* argv[])
 	// -----------------------------------------
 
 
-	// Rectify trajectories, remove invalid ones, compute velocities.
+	// Rectify trajectories and remove invalid ones.
+	t0 = (double) cv::getTickCount();
 	{
 		int nValid;
 		vector<bool> isValid;
@@ -529,15 +531,33 @@ int main(int argc, char* argv[])
 		removeInvalidPoints(isValid, nValid, trajsY);
 		removeInvalidPoints(isValid, nValid, trajsRectX);
 		removeInvalidPoints(isValid, nValid, trajsRectY);
-		computeVelocities(trajsRectX, trajsRectY, trajsVx, trajsVy);
 	}
 
+
+	// Compute velocities.
+	t1 = (double) cv::getTickCount();
+	computeVelocities(trajsRectX, trajsRectY, trajsVx, trajsVy);
+
+
 	// Compute trajectory similarities.
+	t2 = (double) cv::getTickCount();
 	computeSimilarities(trajsStart, trajsRectX, trajsRectY, trajsVx, trajsVy, similarities);
 
+
 	// Grouping.
+	t3 = (double) cv::getTickCount();
 	groupTrajectories(similarities, groupNumbers, nGroups);
+	t4 = (double) cv::getTickCount();
 	createColorMap(groupNumbers, nGroups, colorMap);
+
+
+	// Display execution times.
+	cout << "Execution times (sec):" << endl;
+	cout << "Rectification\t" 	<< getSec(t0, t1) << endl;
+	cout << "Velocity\t" 		<< getSec(t1, t2) << endl;
+	cout << "Similarity\t"		<< getSec(t2, t3) << endl;
+	cout << "Grouping\t"		<< getSec(t3, t4) << endl;
+	cout << "Total\t\t"			<< getSec(t0, t4) << endl;
 
 
 	const string FRAME_0 = "FRAME_0";

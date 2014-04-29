@@ -52,4 +52,6 @@ void klt(const cv::Mat& prevImg, const cv::Mat& nextImg, const cv::Mat& prevPts,
 
 void loadTrajectories(const std::string& fileName, std::vector< std::vector<float> >& trajsX, std::vector< std::vector<float> >& trajsY, std::vector<int>& trajsStart, int& frameStart, int& frameEnd);
 
+double getSec(const double& t0, const double& t1);
+
 #endif /* HELPER_H */

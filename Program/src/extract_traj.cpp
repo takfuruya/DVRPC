@@ -169,7 +169,7 @@ int main(int argc, char* argv[])
 
 
 	cout << frameEnd-frameStart << " frames took ";
-	cout << (t1 - t0) / cv::getTickFrequency() << "sec" << endl;
+	cout << getSec(t0, t1) << "sec" << endl;
 
 
 	traj.save(trajFileName);

@@ -353,3 +353,10 @@ void loadTrajectories(const string& fileName, vector< vector<float> >& trajsX, v
 
 	file.close();
 }
+
+
+double getSec(const double& t0, const double& t1)
+{
+	return ( (t1 - t0) / cv::getTickFrequency() );
+}
+

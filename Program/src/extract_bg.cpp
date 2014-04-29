@@ -249,7 +249,7 @@ int main(int argc, char* argv[])
 	}
 	videoCapture.release();
 	t1 = (double) cv::getTickCount();
-	cout << (t1 - t0) / cv::getTickFrequency() << "sec" << endl;
+	cout << getSec(t0, t1) << "sec" << endl;
 
 
 	// Calculate mean & inverse covariance.
@@ -259,7 +259,7 @@ int main(int argc, char* argv[])
 
 
 	t2 = (double) cv::getTickCount();
-	cout << (t2 - t1) / cv::getTickFrequency() << "sec" << endl;
+	cout << getSec(t1, t2) << "sec" << endl;
 
 
 	// Save background model to file.

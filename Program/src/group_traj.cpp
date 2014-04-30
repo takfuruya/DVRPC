@@ -11,6 +11,7 @@ group_traj.cpp
 #include <ctime>
 #include <cmath>
 #include <algorithm>
+#include <climits>
 #include "opencv2/opencv.hpp" // 2.4.5 pkg-config --modversion opencv
 #include "helper.h"
 #include "BronKerbosch.h"
@@ -379,12 +380,111 @@ void groupTrajectories2(const cv::SparseMat& similarities, vector<int>& groupNum
 }
 
 
-void createColorMap(const vector<int>& groupNumbers, const int nGroups, vector<cv::Scalar>& colorMap)
+void mergeGroupedTrajectories(const vector<int>& groupNumbers,
+							  const int nGroups,
+							  const vector<int>& trajsStart,
+							  const vector< vector<float> >& trajsX,
+							  const vector< vector<float> >& trajsY,
+							  vector<int>& objTrajsStart,
+							  vector< vector<float> >& objTrajsX,
+							  vector< vector<float> >& objTrajsY)
+{
+	int nTrajs = groupNumbers.size();
+	objTrajsStart.resize(nGroups);
+	objTrajsX.resize(nGroups);
+	objTrajsY.resize(nGroups);
+
+	for (int i = 0; i < nGroups; ++i)
+	{
+		int nTrajsInGroup = 0;		 	// # of trajectories in this group.
+		vector<int> trajsInGroupIdx; 	// Trajectory indices of this group.
+		int frameStart = INT_MAX;	 	// First frame in this group.
+		int frameEnd = INT_MIN;			// Last frame in this group (exclusive).
+		int nFrames = 0;				// # of frames in this group.
+
+
+		// Count # of trajectories in this group.
+		for (int j = 0; j < nTrajs; ++j)
+		{
+			if (groupNumbers[j] != i) continue;
+			++ nTrajsInGroup;
+		}
+		
+
+		// Get trajectory indices of this group and
+		// find starting (inclusive) & ending (exclusive) frames.
+		trajsInGroupIdx.resize(nTrajsInGroup);
+		for (int j = 0, k = 0; j < nTrajs; ++j)
+		{
+			if (groupNumbers[j] != i) continue;
+
+			int s = trajsStart[j];
+			int e = s + trajsX[j].size();
+
+			if (s < frameStart) frameStart = s;
+			if (e > frameEnd) frameEnd = e;
+
+			trajsInGroupIdx[k++] = j;
+		}
+		
+
+		if (nTrajsInGroup > 0)
+		{
+			nFrames = frameEnd - frameStart;
+		}
+		objTrajsStart[i] = frameStart;
+		objTrajsX[i].resize(nFrames);
+		objTrajsY[i].resize(nFrames);
+		for (int j = 0; j < nFrames; ++j)
+		{
+			int frame = j + frameStart;
+			float sumX = 0;
+			float sumY = 0;
+			int sum = 0;
+
+			for (int k = 0; k < nTrajsInGroup; ++k)
+			{
+				int idx = trajsInGroupIdx[k];
+				int s = trajsStart[idx];
+				int e = s + trajsX[idx].size() - 1;
+
+				if (frame < s || frame > e) continue;
+				
+				int m = frame - s;
+				sumX += trajsX[idx][m];
+				sumY += trajsY[idx][m];
+				++ sum;
+			}
+			objTrajsX[i][j] = sumX / sum;
+			objTrajsY[i][j] = sumY / sum;
+		}
+	}
+}
+
+/* TODO
+void smoothObjTrajectories(const vector< vector<float> >& x, const vector< vector<float> >& y)
+{
+	int nTrajs = x.size();
+
+	for (int i = 0; i < nTrajs; ++i)
+	{
+		int duration = x[i].size();
+
+		// TODO
+		for (int j = 0; j < duration; ++j)
+		{
+
+		}
+	}
+}
+*/
+
+
+void createColorMap(const vector<int>& groupNumbers, const int nGroups, vector<cv::Scalar>& colors, vector<cv::Scalar>& colorMap)
 {
 	srand (time(NULL));
 
 	int nTrajs = groupNumbers.size();
-	vector<cv::Scalar> colors;
 	colors.resize(nGroups);
 	colorMap.resize(nTrajs);
 
@@ -404,8 +504,9 @@ void createColorMap(const vector<int>& groupNumbers, const int nGroups, vector<c
 }
 
 
+//  TODO ignore -1 group
 // For testing.
-void drawGrouping(const cv::Mat& im, const vector<int>& trajsStart, const vector< vector<float> >& trajsX, const vector< vector<float> >& trajsY, const vector<cv::Scalar>& colorMap, const int frameIdx, cv::Mat& imOut)
+void drawGroupingHelper(const cv::Mat& im, const vector<int>& trajsStart, const vector< vector<float> >& trajsX, const vector< vector<float> >& trajsY, const vector<cv::Scalar>& colorMap, const int frameIdx, const int lineThickness, const bool isLabel, cv::Mat& imOut)
 {
 	int nTrajs = trajsStart.size();
 	imOut = im.clone();
@@ -418,21 +519,55 @@ void drawGrouping(const cv::Mat& im, const vector<int>& trajsStart, const vector
 		if (trajStart > frameIdx ||
 			trajStart + trajDuration < frameIdx) continue;
 
-		int nLines = min(trajDuration, frameIdx-trajStart) - 1;
-
-		for (int j = 0; j < nLines; ++j)
+		if (isLabel)
 		{
-			float x1, y1, x2, y2;
-			x1 = trajsX[i][j];
-			y1 = trajsY[i][j];
-			x2 = trajsX[i][j+1];
-			y2 = trajsY[i][j+1];
+			int j = frameIdx - trajStart;
+			float x = trajsX[i][j];
+			float y = trajsY[i][j];
+			const float radius = 15.0f;
+			const cv::Scalar white = CV_RGB(255, 255, 255);
+			const double fontScale = 0.5;
+			cv::Point center(x, y);
+			cv::Point textPos(x - 10.0f, y + 5.0f);
+			cv::circle(imOut, center, radius, colorMap[i], lineThickness);
+			cv::putText(imOut, to_string(i), textPos, cv::FONT_HERSHEY_SIMPLEX, fontScale, white, 2);
+		}
+		else
+		{
+			int nLines = frameIdx - trajStart - 1;
 
-			cv::Point start(x1, y1);
-			cv::Point end(x2, y2);
-			cv::line(imOut, start, end, colorMap[i]);
+			for (int j = 0; j < nLines; ++j)
+			{
+				float x1, y1, x2, y2;
+				x1 = trajsX[i][j];
+				y1 = trajsY[i][j];
+				x2 = trajsX[i][j+1];
+				y2 = trajsY[i][j+1];
+
+				cv::Point start(x1, y1);
+				cv::Point end(x2, y2);
+				cv::line(imOut, start, end, colorMap[i], lineThickness);
+			}
 		}
 	}
+}
+
+
+void drawGrouping(const cv::Mat& im, const vector<int>& trajsStart, const vector< vector<float> >& trajsX, const vector< vector<float> >& trajsY, const vector<cv::Scalar>& colorMap, const int frameIdx, cv::Mat& imOut)
+{
+	drawGroupingHelper(im, trajsStart, trajsX, trajsY, colorMap, frameIdx, 1, false, imOut);
+}
+
+
+void drawObjects(const cv::Mat& im, const vector<int>& trajsStart, const vector< vector<float> >& trajsX, const vector< vector<float> >& trajsY, const vector<cv::Scalar>& colorMap, const int frameIdx, cv::Mat& imOut)
+{
+	drawGroupingHelper(im, trajsStart, trajsX, trajsY, colorMap, frameIdx, 2, false, imOut);
+}
+
+
+void drawNumberLabel(const cv::Mat& im, const vector<int>& trajsStart, const vector< vector<float> >& trajsX, const vector< vector<float> >& trajsY, const vector<cv::Scalar>& colorMap, const int frameIdx, cv::Mat& imOut)
+{
+	drawGroupingHelper(im, trajsStart, trajsX, trajsY, colorMap, frameIdx, -1, true, imOut);
 }
 
 
@@ -504,7 +639,10 @@ int main(int argc, char* argv[])
 	cv::SparseMat similarities;
 	vector<int> groupNumbers;	// size = # of trajectories
 	int nGroups;
-	vector<cv::Scalar> colorMap;
+	vector< vector<float> > objTrajsX; // size = nGroups
+	vector< vector<float> > objTrajsY;
+	vector<int> objTrajsStart;
+	vector<cv::Scalar> colors, colorMap;
 	double t0, t1, t2, t3, t4; // For measuring execution speed.
 
 
@@ -547,8 +685,10 @@ int main(int argc, char* argv[])
 	// Grouping.
 	t3 = (double) cv::getTickCount();
 	groupTrajectories(similarities, groupNumbers, nGroups);
+	mergeGroupedTrajectories(groupNumbers, nGroups, trajsStart, trajsX, trajsY, objTrajsStart, objTrajsX, objTrajsY);
+	//smoothObjTrajectories(objTrajsX, objTrajsY);
 	t4 = (double) cv::getTickCount();
-	createColorMap(groupNumbers, nGroups, colorMap);
+	createColorMap(groupNumbers, nGroups, colors, colorMap);
 
 
 	// Display execution times.
@@ -579,7 +719,7 @@ int main(int argc, char* argv[])
 		cout << "\r";
 		cout << frameIdx << " (" << 100 * (frameIdx - frameStart) / (frameEnd - frameStart) << "%)";
 		cout << "     " << flush;
-		
+
 		cv::Mat im, imRect, imDrawn, imRectDrawn, imRectDrawn2;
 
 		videoCapture.retrieve(im);
@@ -588,7 +728,10 @@ int main(int argc, char* argv[])
 		//drawAllTrajs(trajsX, trajsY, imRect);
 		//imshow("Frame1", imRect);
 
-		drawGrouping(im, trajsStart, trajsX, trajsY, colorMap, frameIdx, imDrawn);
+
+		//drawGrouping(im, trajsStart, trajsX, trajsY, colorMap, frameIdx, imDrawn);
+		drawObjects(    	 im, objTrajsStart, objTrajsX, objTrajsY, colors, frameIdx, imDrawn);
+		drawNumberLabel(imDrawn, objTrajsStart, objTrajsX, objTrajsY, colors, frameIdx, imDrawn);
 		drawGrouping(imRect, trajsStart, trajsRectX, trajsRectY, colorMap, frameIdx, imRectDrawn);
 		drawConnection(imRect, trajsStart, trajsRectX, trajsRectY, similarities, frameIdx, imRectDrawn2);
 		cv::imshow(FRAME_0, imDrawn);

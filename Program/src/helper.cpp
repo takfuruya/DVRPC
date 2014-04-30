@@ -4,6 +4,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 using namespace std;
 
@@ -360,3 +361,9 @@ double getSec(const double& t0, const double& t1)
 	return ( (t1 - t0) / cv::getTickFrequency() );
 }
 
+std::string to_string(int i)
+{
+	ostringstream ss;
+	ss << i;
+	return ss.str();
+}

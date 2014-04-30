@@ -52,6 +52,10 @@ void klt(const cv::Mat& prevImg, const cv::Mat& nextImg, const cv::Mat& prevPts,
 
 void loadTrajectories(const std::string& fileName, std::vector< std::vector<float> >& trajsX, std::vector< std::vector<float> >& trajsY, std::vector<int>& trajsStart, int& frameStart, int& frameEnd);
 
+// Get time in seconds.
 double getSec(const double& t0, const double& t1);
+
+// This is because C++11 is not used (to_string() or itoa).
+std::string to_string(int i);
 
 #endif /* HELPER_H */

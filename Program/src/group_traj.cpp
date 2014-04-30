@@ -12,7 +12,7 @@ group_traj.cpp
 #include <cmath>
 #include <algorithm>
 #include <climits>
-#include "opencv2/opencv.hpp" // 2.4.5 pkg-config --modversion opencv
+#include "opencv2/opencv.hpp" // 2.4.8
 #include "helper.h"
 #include "BronKerbosch.h"
 

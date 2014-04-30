@@ -5,6 +5,7 @@
 #include <vector>
 #include "opencv2/opencv.hpp" // OpenCV 2.4.5
 
+
 // Exits if input is invalid.
 void checkInputs(cv::VideoCapture& v);
 void checkInputs(cv::VideoCapture& v, int startTime, int duration);
@@ -12,6 +13,10 @@ void checkInputs(cv::VideoCapture& v, int startTime, int duration);
 // Get width, height, and number of frames.
 void getVidInfo(cv::VideoCapture& v, int& height, int& width, int& nFrames);
 void getVidInfo(cv::VideoCapture& v, int& height, int& width, int& nFrames, int& fps);
+
+// OpenCV fails to read fps on some versions on some OS on some videos.
+// This is just a wrapper.
+int getFps(cv::VideoCapture& v);
 
 // Skip to frame f.
 void skipFrames(cv::VideoCapture& v, int f);

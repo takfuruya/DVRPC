@@ -25,8 +25,8 @@ void checkInputs(cv::VideoCapture& v, int startTime, int duration)
 	bool isWithinRange;
 	
 	nFrames = static_cast<int>(v.get(CV_CAP_PROP_FRAME_COUNT) + 0.5);
-	fps = static_cast<int>(v.get(CV_CAP_PROP_FPS) + 0.5);
-	
+	fps = getFps(v);
+
 	startFrame = startTime * fps;
 	endFrame = startFrame + duration * fps;
 	isWithinRange = (startFrame >= 0 &&
@@ -37,6 +37,8 @@ void checkInputs(cv::VideoCapture& v, int startTime, int duration)
 	if (!isWithinRange)
 	{
 		cerr << "helper.cpp: Video range is invalid." << endl;
+		cerr << "            Video contains " << nFrames << " frames and ";
+		cerr << startFrame << " to " << endFrame << " was specified." << endl;
 		exit(0);
 	}
 }
@@ -56,9 +58,21 @@ void getVidInfo(cv::VideoCapture& v, int& h, int& w, int& f)
 void getVidInfo(cv::VideoCapture& v, int& h, int& w, int& f, int& r)
 {
 	getVidInfo(v, h, w, f);
+	r = getFps(v);
+}
+
+
+int getFps(cv::VideoCapture& v)
+{
+	double dfps = v.get(CV_CAP_PROP_FPS);
+	int fps = static_cast<int>(dfps + 0.5);	
 	
-	double dr = v.get(CV_CAP_PROP_FPS);
-	r = static_cast<int>(dr + 0.5);
+	if (fps < 0)
+	{
+		cout << "helper.cpp: Failed to read fps. Assuming 20 fps." << endl;
+		fps = 20;
+	}
+	return fps;
 }
 
 

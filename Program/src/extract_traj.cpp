@@ -8,7 +8,7 @@ extract_traj.cpp
 #include <string>
 #include <vector>
 #include <cstdlib>
-#include "opencv2/opencv.hpp" // 2.4.5 pkg-config --modversion opencv
+#include "opencv2/opencv.hpp" // 2.4.8
 #include "helper.h"
 #include "TrajectoryListManager.h"
 

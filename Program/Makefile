@@ -15,8 +15,8 @@ AVI_FILE = ../Videos/1.avi
 #OBJ_FILES := $(patsubst $(SRC_DIR)/%.cpp,$(BIN_DIR)/%.o,$(CPP_FILES))
 
 # Video Time Range
-START_TIME = 15
-DURATION = 10
+START_TIME = 930
+DURATION = 30
 
 #all: $(EXE_FILE)
 
@@ -165,7 +165,7 @@ test_traj_extraction: $(BIN_DIR)/test_traj_extraction.exe
 
 .PHONY: group_traj
 group_traj: $(BIN_DIR)/group_traj.exe
-	./$< $(AVI_FILE) $(INT_DIR)/traj_$(START_TIME)_$(DURATION).txt
+	./$< $(AVI_FILE) $(INT_DIR)/traj_$(START_TIME)_$(DURATION).txt $(INT_DIR)/traj_$(START_TIME)_$(DURATION).avi
 
 .PHONY: test_maximal_clique
 test_maximal_clique: $(BIN_DIR)/test_maximal_clique.exe

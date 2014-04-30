@@ -699,7 +699,13 @@ void createColorMap(const vector<int>& groupNumbers, const int nGroups, vector<c
 
 //  TODO ignore -1 group
 // For testing.
-void drawGroupingHelper(const cv::Mat& im, const vector<int>& trajsStart, const vector< vector<float> >& trajsX, const vector< vector<float> >& trajsY, const vector<cv::Scalar>& colorMap, const int frameIdx, const int lineThickness, const bool isLabel, cv::Mat& imOut)
+void drawGroupingHelper(const cv::Mat& im,
+						const vector<int>& trajsStart,
+						const vector< vector<float> >& trajsX,
+						const vector< vector<float> >& trajsY,
+						const vector<cv::Scalar>& colorMap,
+						const int frameIdx, const int lineThickness,
+						const bool isLabel, cv::Mat& imOut)
 {
 	int nTrajs = trajsStart.size();
 	imOut = im.clone();
@@ -812,17 +818,20 @@ void drawConnection(const cv::Mat& im, const vector<int>& trajsStart, const vect
 
 int main(int argc, char* argv[])
 {
-	if (argc != 3)
+	if (argc != 4)
 	{
 		cerr << "Incorrect number of arguments." << endl;
 		return -1;
 	}
 
-	string videoFileName = argv[1];
+	string inVideoFileName = argv[1];
 	string trajFileName = argv[2];
+	string outVideoFileName = argv[3];
 
-	cv::VideoCapture videoCapture(videoFileName);
+	cv::VideoCapture videoCapture(inVideoFileName);
+	cv::VideoWriter videoWriter;
 	checkInputs(videoCapture);
+
 
 
 	// -----------------------------------------
@@ -830,7 +839,7 @@ int main(int argc, char* argv[])
 	// -----------------------------------------
 
 
-	int nFrames, vidWidth, vidHeight;
+	int nFrames, vidWidth, vidHeight, fps;
 	vector< vector<float> > trajsX, trajsY;
 	vector< vector<float> > trajsRectX, trajsRectY, trajsVx, trajsVy;
 	vector<int> trajsStart;
@@ -845,7 +854,7 @@ int main(int argc, char* argv[])
 	double t0, t1, t2, t3, t4; // For measuring execution speed.
 
 
-	getVidInfo(videoCapture, vidHeight, vidWidth, nFrames);
+	getVidInfo(videoCapture, vidHeight, vidWidth, nFrames, fps);
 	loadTrajectories(trajFileName, trajsX, trajsY, trajsStart, frameStart, frameEnd);
 	frameIdx = frameStart;
 
@@ -911,6 +920,18 @@ int main(int argc, char* argv[])
 	cout << "Total\t\t"			<< getSec(t0, t4) << endl;
 
 
+	// Open video for writing.
+	videoWriter.open(outVideoFileName,
+					 CV_FOURCC('P','I','M','1'),
+					 static_cast<double>(fps),
+					 cv::Size(vidWidth, vidHeight));
+	if (!videoWriter.isOpened())
+	{
+		cerr << "Could not open the output video for write." << endl;
+		return -1;
+	}
+
+
 	const string FRAME_0 = "FRAME_0";
 	const string FRAME_1 = "FRAME_1";
 	const string FRAME_2 = "FRAME_2";
@@ -949,11 +970,14 @@ int main(int argc, char* argv[])
 		cv::imshow(FRAME_1, imRectDrawn);
 		cv::imshow(FRAME_2, imRectDrawn2);
 		
+		videoWriter << imDrawn;
+
 		++ frameIdx;
 		//cv::waitKey(9000);
 		//break;
 		if (cv::waitKey(50) >= 0) continue;
 	}
+	cout << endl;
 
 
 	videoCapture.release();

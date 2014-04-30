@@ -387,12 +387,14 @@ void mergeGroupedTrajectories(const vector<int>& groupNumbers,
 							  const vector< vector<float> >& trajsY,
 							  vector<int>& objTrajsStart,
 							  vector< vector<float> >& objTrajsX,
-							  vector< vector<float> >& objTrajsY)
+							  vector< vector<float> >& objTrajsY,
+							  vector< vector<int> >& objTrajsN)
 {
 	int nTrajs = groupNumbers.size();
 	objTrajsStart.resize(nGroups);
 	objTrajsX.resize(nGroups);
 	objTrajsY.resize(nGroups);
+	objTrajsN.resize(nGroups);
 
 	for (int i = 0; i < nGroups; ++i)
 	{
@@ -435,6 +437,7 @@ void mergeGroupedTrajectories(const vector<int>& groupNumbers,
 		objTrajsStart[i] = frameStart;
 		objTrajsX[i].resize(nFrames);
 		objTrajsY[i].resize(nFrames);
+		objTrajsN[i].resize(nFrames);
 		for (int j = 0; j < nFrames; ++j)
 		{
 			int frame = j + frameStart;
@@ -457,27 +460,217 @@ void mergeGroupedTrajectories(const vector<int>& groupNumbers,
 			}
 			objTrajsX[i][j] = sumX / sum;
 			objTrajsY[i][j] = sumY / sum;
+			objTrajsN[i][j] = sum;
 		}
 	}
 }
 
-/* TODO
-void smoothObjTrajectories(const vector< vector<float> >& x, const vector< vector<float> >& y)
+
+// Weighted moving average with stretched sides.
+void smoothObjTrajectories(const vector< vector<float> >& objTrajsX,
+						   const vector< vector<float> >& objTrajsY,
+						   const vector< vector<int> >& objTrajsN,
+						   vector< vector<float> >& outObjTrajsX,
+						   vector< vector<float> >& outObjTrajsY)
 {
-	int nTrajs = x.size();
+	int nTrajs = objTrajsX.size();
+	const int BLOCK_SIZE = 2; // 2 on each side.
+	vector< vector<float> > outX;
+	vector< vector<float> > outY;
+
+	outX.resize(nTrajs);
+	outY.resize(nTrajs);
 
 	for (int i = 0; i < nTrajs; ++i)
 	{
-		int duration = x[i].size();
+		int duration = objTrajsX[i].size();
+		outX[i].resize(duration);
+		outY[i].resize(duration);
 
-		// TODO
-		for (int j = 0; j < duration; ++j)
+		for (int j = BLOCK_SIZE; j < duration-BLOCK_SIZE; ++j)
 		{
+			float sumX = 0.0f;
+			float sumY = 0.0f;
+			int sumN = 0;
 
+			for (int k = j-BLOCK_SIZE; k < j+BLOCK_SIZE+1; ++k)
+			{
+				int n = objTrajsN[i][k];
+				sumX += objTrajsX[i][k] * n;
+				sumY += objTrajsY[i][k] * n;
+				sumN += n;
+			}
+
+			outX[i][j] = sumX / sumN;
+			outY[i][j] = sumY / sumN;
+		}
+
+		// Handle edges.
+		if (duration > BLOCK_SIZE * 2)
+		{
+			float edgeFirstX, edgeFirstY, edgeLastX, edgeLastY;
+			edgeFirstX = outX[i][BLOCK_SIZE];
+			edgeFirstY = outY[i][BLOCK_SIZE];
+			edgeLastX = outX[i][duration-BLOCK_SIZE-1];
+			edgeLastY = outY[i][duration-BLOCK_SIZE-1];
+
+			for (int j = 0; j < BLOCK_SIZE; ++j)
+			{
+				outX[i][j] = edgeFirstX;
+				outY[i][j] = edgeFirstY;
+			}
+			for (int j = duration-BLOCK_SIZE-1; j < duration; ++j)
+			{
+				outX[i][j] = edgeLastX;
+				outY[i][j] = edgeLastY;
+			}
+		}
+		else
+		{
+			float sumX = 0.0f;
+			float sumY = 0.0f;
+			int sumN = 0;
+			float x, y;
+			for (int j = 0; j < duration; ++j)
+			{
+				int n = objTrajsN[i][j];
+				sumX += objTrajsX[i][j] * n;
+				sumY += objTrajsY[i][j] * n;
+				sumN += n;
+			}
+
+			x = sumX / sumN;
+			y = sumY / sumN;
+			for (int j = 0; j < duration; ++j)
+			{
+				outX[i][j] = x;
+				outY[i][j] = y;
+			}
 		}
 	}
+
+	outObjTrajsX = outX;
+	outObjTrajsY = outY;
+}
+
+
+// Remove first and last ends of the trajectories
+// where there are only made from 1 trajectory.
+void truncateObjTrajectories(const vector<int>& objTrajsStart,
+							 const vector< vector<float> >& objTrajsX,
+							 const vector< vector<float> >& objTrajsY,
+							 const vector< vector<int> >& objTrajsN,
+							 vector<int>& outObjTrajsStart,
+							 vector< vector<float> >& outObjTrajsX,
+							 vector< vector<float> >& outObjTrajsY)
+{
+	int nTrajs = objTrajsStart.size();
+	vector<int> outStart;
+	vector< vector<float> > outX;
+	vector< vector<float> > outY;
+	outStart.resize(nTrajs);
+	outX.resize(nTrajs);
+	outY.resize(nTrajs);
+
+	for (int i = 0; i < nTrajs; ++i)
+	{
+		int duration = objTrajsX[i].size();
+		int idxStart, idxEnd;	// start inclusive, end exclusive.
+		idxStart = -1;
+		idxEnd = -1;
+
+		// Find idxStart.
+		for (int j = 0; j < duration; ++j)
+		{
+			if (objTrajsN[i][j] > 1)
+			{
+				idxStart = j;
+				break;
+			}
+		}
+
+		// Find idxEnd.
+		for (int j = duration; j > 0; --j)
+		{
+			if (objTrajsN[i][j-1] > 1)
+			{
+				idxEnd = j;
+				break;
+			}
+		}
+
+		// If the trajectory was "merged" from only one trajectory,
+		// dont't consider it since it is unreliable.
+		if (idxStart < 0 || idxEnd < 0) continue;
+
+		// Beginning truncated so new starting frame.
+		outStart[i] = objTrajsStart[i] + idxStart;
+
+		// Copy.
+		int size = idxEnd - idxStart;
+		outX[i].resize(size);
+		outY[i].resize(size);
+		for (int j = idxStart, k = 0; j < idxEnd; ++j, ++k)
+		{
+			outX[i][k] = objTrajsX[i][j];
+			outY[i][k] = objTrajsY[i][j];
+		}
+	}
+
+	outObjTrajsStart = outStart;
+	outObjTrajsX = outX;
+	outObjTrajsY = outY;
+}
+
+
+/*
+void markInvalidGroups(const vector< vector<float> >& objTrajsX,
+					   vector<int>& groupNumbers, int& nGroups,
+					   vector<int>& isValid, int& nValid)
+{
+	int nTrajs = groupNumbers.size();
+	int nGroupsNew = nGroups;
+	isValid.resize(nGroups);
+	nValid = 0;
+
+
+	// Count nValid and fill isValid.
+	for (int i = 0; i < nGroups; ++i)
+	{
+		if (objTrajsX[i].size() < 1)
+		{
+			-- nGroupsNew;
+			isValid[i] = false;
+
+			for (int j = 0; j < nTrajs; ++j)
+			{
+				if (groupNumbers[j] == i) groupNumbers[j] = -1;
+			}
+
+			continue;
+		}
+
+		isValid[i] = true;
+		++ nValid;
+	}
+
+	// Re-do groupNumbers
+	// Copy groups such that invalid ones are -1 and group numbers are
+	// from 0 to nGroups-1.
 }
 */
+
+int countVehicles(const vector< vector<float> >& x)
+{
+	int nGroups = x.size();
+	int n = 0;
+
+	for (int i = 0; i < nGroups; ++i)
+	{
+		if (x[i].size() > 0) ++ n;
+	}
+	return n;
+}
 
 
 void createColorMap(const vector<int>& groupNumbers, const int nGroups, vector<cv::Scalar>& colors, vector<cv::Scalar>& colorMap)
@@ -519,12 +712,14 @@ void drawGroupingHelper(const cv::Mat& im, const vector<int>& trajsStart, const 
 		if (trajStart > frameIdx ||
 			trajStart + trajDuration < frameIdx) continue;
 
+
+		int idx = frameIdx - trajStart;
+
 		if (isLabel)
 		{
-			int j = frameIdx - trajStart;
-			float x = trajsX[i][j];
-			float y = trajsY[i][j];
-			const float radius = 15.0f;
+			float x = trajsX[i][idx];
+			float y = trajsY[i][idx];
+			const int radius = 15;
 			const cv::Scalar white = CV_RGB(255, 255, 255);
 			const double fontScale = 0.5;
 			cv::Point center(x, y);
@@ -534,7 +729,7 @@ void drawGroupingHelper(const cv::Mat& im, const vector<int>& trajsStart, const 
 		}
 		else
 		{
-			int nLines = frameIdx - trajStart - 1;
+			int nLines = idx - 1;
 
 			for (int j = 0; j < nLines; ++j)
 			{
@@ -548,6 +743,10 @@ void drawGroupingHelper(const cv::Mat& im, const vector<int>& trajsStart, const 
 				cv::Point end(x2, y2);
 				cv::line(imOut, start, end, colorMap[i], lineThickness);
 			}
+
+			cv::Point center(trajsX[i][idx], trajsY[i][idx]);
+			const int radius = 3;
+			cv::circle(imOut, center, radius, colorMap[i], -1);
 		}
 	}
 }
@@ -638,7 +837,7 @@ int main(int argc, char* argv[])
 	int frameStart, frameEnd, frameIdx; // Inclusive
 	cv::SparseMat similarities;
 	vector<int> groupNumbers;	// size = # of trajectories
-	int nGroups;
+	int nGroups, nVehicles;
 	vector< vector<float> > objTrajsX; // size = nGroups
 	vector< vector<float> > objTrajsY;
 	vector<int> objTrajsStart;
@@ -685,13 +884,25 @@ int main(int argc, char* argv[])
 	// Grouping.
 	t3 = (double) cv::getTickCount();
 	groupTrajectories(similarities, groupNumbers, nGroups);
-	mergeGroupedTrajectories(groupNumbers, nGroups, trajsStart, trajsX, trajsY, objTrajsStart, objTrajsX, objTrajsY);
-	//smoothObjTrajectories(objTrajsX, objTrajsY);
+	{
+		vector< vector<int> > objTrajsN;
+		//vector<bool> isValid;
+		//int nValid;
+		mergeGroupedTrajectories(groupNumbers, nGroups, trajsStart, trajsX, trajsY, objTrajsStart, objTrajsX, objTrajsY, objTrajsN);
+		smoothObjTrajectories(objTrajsX, objTrajsY, objTrajsN, objTrajsX, objTrajsY);
+		truncateObjTrajectories(objTrajsStart, objTrajsX, objTrajsY, objTrajsN, objTrajsStart, objTrajsX, objTrajsY);
+		//markInvalidGroups(objTrajsX, groupNumbers, nGroups, isValid, nValid);
+		//removeInvalidPoints(isValid, nValid, objTrajsStart);
+		//removeInvalidPoints(isValid, nValid, objTrajsX);
+		//removeInvalidPoints(isValid, nValid, objTrajsY);
+		nVehicles = countVehicles(objTrajsX);
+	}
 	t4 = (double) cv::getTickCount();
 	createColorMap(groupNumbers, nGroups, colors, colorMap);
 
 
-	// Display execution times.
+	// Display results & execution times.
+	cout << nVehicles << " vehicles detected." << endl;
 	cout << "Execution times (sec):" << endl;
 	cout << "Rectification\t" 	<< getSec(t0, t1) << endl;
 	cout << "Velocity\t" 		<< getSec(t1, t2) << endl;

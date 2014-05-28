@@ -53,6 +53,20 @@ int main(int argc, char* argv[])
 	skipFrames(videoCapture, frameStart);
 
 
+	// Open video for writing.
+	cv::VideoWriter videoWriter;
+	string outVideoFileName = "/home/takashi/Documents/DVRPC/out.avi";
+	videoWriter.open(outVideoFileName,
+					 CV_FOURCC('P','I','M','1'),
+					 static_cast<double>(fps),
+					 cv::Size(vidWidth, vidHeight));
+	if (!videoWriter.isOpened())
+	{
+		cerr << "Could not open the output video for write." << endl;
+		return -1;
+	}
+
+
 	while (videoCapture.grab() && frameIdx <= frameEnd)
 	{
 		cout << "Frame: " << frameIdx << " ";
@@ -63,6 +77,8 @@ int main(int argc, char* argv[])
 		videoCapture.retrieve(im);
 		cv::imshow(FRAME, im);
 		
+		videoWriter << im;
+
 		++ frameIdx;
 		if (cv::waitKey(VIEW_FPS) >= 0) continue;
 	}

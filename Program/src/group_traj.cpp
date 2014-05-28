@@ -818,15 +818,16 @@ void drawConnection(const cv::Mat& im, const vector<int>& trajsStart, const vect
 
 int main(int argc, char* argv[])
 {
-	if (argc != 4)
+	if (argc != 3 && argc != 4)
 	{
 		cerr << "Incorrect number of arguments." << endl;
 		return -1;
 	}
 
+	bool isMakingOutVideo = (argc == 4);
 	string inVideoFileName = argv[1];
 	string trajFileName = argv[2];
-	string outVideoFileName = argv[3];
+	string outVideoFileName = isMakingOutVideo ? argv[3] : "";
 
 	cv::VideoCapture videoCapture(inVideoFileName);
 	cv::VideoWriter videoWriter;
@@ -921,14 +922,17 @@ int main(int argc, char* argv[])
 
 
 	// Open video for writing.
-	videoWriter.open(outVideoFileName,
-					 CV_FOURCC('P','I','M','1'),
-					 static_cast<double>(fps),
-					 cv::Size(vidWidth, vidHeight));
-	if (!videoWriter.isOpened())
+	if (isMakingOutVideo)
 	{
-		cerr << "Could not open the output video for write." << endl;
-		return -1;
+		videoWriter.open(outVideoFileName,
+						 CV_FOURCC('P','I','M','1'),
+						 static_cast<double>(fps),
+						 cv::Size(vidWidth, vidHeight));
+		if (!videoWriter.isOpened())
+		{
+			cerr << "Could not open the output video for write." << endl;
+			return -1;
+		}
 	}
 
 
@@ -970,7 +974,10 @@ int main(int argc, char* argv[])
 		cv::imshow(FRAME_1, imRectDrawn);
 		cv::imshow(FRAME_2, imRectDrawn2);
 		
-		videoWriter << imDrawn;
+		if (isMakingOutVideo)
+		{
+			videoWriter << imDrawn;
+		}
 
 		++ frameIdx;
 		//cv::waitKey(9000);
